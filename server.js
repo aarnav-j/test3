@@ -24,6 +24,7 @@ let sensorData = {
 app.get('/', (req, res) => {
     res.json({
         status: 'online',
+        version: '1.2 (No Auth)',
         message: 'ESP32 Backend is running',
         endpoints: {
             generateKey: 'GET /api/generate-api-key',
