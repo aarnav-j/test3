@@ -22,8 +22,8 @@ let sensorData = {
 
 // Health check
 app.get('/', (req, res) => {
-    res.json({ 
-        status: 'online', 
+    res.json({
+        status: 'online',
         message: 'ESP32 Backend is running',
         endpoints: {
             generateKey: 'GET /api/generate-api-key',
@@ -37,8 +37,8 @@ app.get('/', (req, res) => {
 app.get('/api/generate-api-key', (req, res) => {
     const newKey = uuidv4();
     apiKeys.add(newKey);
-    res.json({ 
-        status: 'success', 
+    res.json({
+        status: 'success',
         api_key: newKey,
         instruction: 'Use this key in your ESP32 code to send data'
     });
@@ -46,21 +46,22 @@ app.get('/api/generate-api-key', (req, res) => {
 
 // ESP32 sends data here
 app.post('/api/update', (req, res) => {
-    const { api_key, ir_triggered, rfid_authorized } = req.body;
+    // New ESP32 code sends: { unauthorized_suspect: bool, access_granted: bool }
+    // It does NOT send api_key, so we remove the strict check.
+    const { api_key, ir_triggered, rfid_authorized, unauthorized_suspect, access_granted } = req.body;
 
-    // Validate API Key
-    if (!api_key || !apiKeys.has(api_key)) {
-        return res.status(401).json({ error: 'Invalid or missing API key' });
-    }
+    // Map new ESP32 payload to internal state
+    const isIrTriggered = unauthorized_suspect !== undefined ? unauthorized_suspect : (ir_triggered || false);
+    const isRfidAuthorized = access_granted !== undefined ? access_granted : (rfid_authorized || false);
 
     // Update sensor data
     sensorData = {
-        ir_triggered: Boolean(ir_triggered),
-        rfid_authorized: Boolean(rfid_authorized),
+        ir_triggered: Boolean(isIrTriggered),
+        rfid_authorized: Boolean(isRfidAuthorized),
         last_updated: new Date().toISOString(),
-        message: rfid_authorized 
-            ? "Authorized person detected - IR sensor sleeping" 
-            : (ir_triggered ? "⚠️ ALERT: Unauthorized intrusion detected!" : "All clear - Monitoring...")
+        message: isRfidAuthorized
+            ? "Authorized person detected - IR sensor sleeping"
+            : (isIrTriggered ? "⚠️ ALERT: Unauthorized intrusion detected!" : "All clear - Monitoring...")
     };
 
     console.log(`[${sensorData.last_updated}] Data received:`, sensorData);
